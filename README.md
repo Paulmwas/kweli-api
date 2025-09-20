@@ -6,10 +6,11 @@
 ## Table of Contents
 1. [Backend Architecture](#backend-architecture)
 2. [API Endpoints](#api-endpoints)
-    - [Authentication](#authentication)
-    - [Articles](#articles)
-    - [Categories](#categories)
-    - [User Profile](#user-profile)
+  - [Authentication](#authentication)
+  - [Articles](#articles)
+  - [Categories](#categories)
+  - [Tags](#tags)
+  - [User Profile](#user-profile)
 3. [Setup Instructions](#setup-instructions)
 4. [Environment Variables](#environment-variables)
 5. [Deployment](#deployment)
@@ -17,10 +18,10 @@
 ## Backend Architecture
 
 ### Tech Stack
-- **Framework**: Django 4.2 + Django REST Framework
-- **Database**:  SQLite (development)
+- **Framework**: Django 5.2 + Django REST Framework
+- **Database**: SQLite (development), PostgreSQL (production)
 - **Authentication**: JWT (JSON Web Tokens)
-
+- **CORS**: Enabled for specified origins
 
 ### Core Components
 1. **Authentication Service**: Handles user registration, login, and token management
@@ -60,9 +61,9 @@ Register a new user.
   "refresh": "string",
   "access": "string",
   "user": {
-     "id": "integer",
-     "username": "string",
-     "email": "string"
+  "id": "integer",
+  "username": "string",
+  "email": "string"
   }
 }
 ```
@@ -102,9 +103,7 @@ Invalidate refresh token.
 List all published articles.
 
 **Query Parameters**:
-- `category`: Filter by category slug
-- `search`: Full-text search
-- `ordering`: Sort by fields (-publish_date, view_count)
+- `category__slug`: Filter by category slug
 - `page`: Pagination
 
 **Response**:
@@ -114,27 +113,27 @@ List all published articles.
   "next": "url|null",
   "previous": "url|null",
   "results": [
-     {
-        "id": "integer",
-        "title": "string",
-        "slug": "string",
-        "excerpt": "string",
-        "lead_image": "url",
-        "publish_date": "datetime",
-        "view_count": "integer",
-        "category": {
-          "id": "integer",
-          "name": "string",
-          "slug": "string"
-        },
-        "tags": [
-          {
-             "id": "integer",
-             "name": "string",
-             "slug": "string"
-          }
-        ]
-     }
+  {
+   "id": "integer",
+   "title": "string",
+   "slug": "string",
+   "excerpt": "string",
+   "lead_image": "url",
+   "category": {
+    "id": "integer",
+    "name": "string",
+    "slug": "string"
+   },
+   "tags": [
+    {
+     "id": "integer",
+     "name": "string",
+     "slug": "string"
+    }
+   ],
+   "publish_date": "datetime",
+   "view_count": "integer"
+  }
   ]
 }
 ```
@@ -155,19 +154,21 @@ Retrieve article details.
   "is_trending": "boolean",
   "view_count": "integer",
   "author": {
-     "id": "integer",
-     "username": "string",
-     "profile_picture": "url"
+  "id": "integer",
+  "username": "string"
   },
   "category": {
-     "id": "integer",
-     "name": "string"
+  "id": "integer",
+  "name": "string",
+  "slug": "string",
+  "description": "string"
   },
   "tags": [
-     {
-        "id": "integer",
-        "name": "string"
-     }
+  {
+   "id": "integer",
+   "name": "string",
+   "slug": "string"
+  }
   ],
   "publish_date": "datetime",
   "created_at": "datetime",
@@ -184,13 +185,40 @@ List all categories.
 ```json
 [
   {
-     "id": "integer",
-     "name": "string",
-     "slug": "string",
-     "description": "string"
+  "id": "integer",
+  "name": "string",
+  "slug": "string",
+  "description": "string"
   }
 ]
 ```
+
+#### `GET /api/categories/{slug}/`
+List articles in a specific category.
+
+**Response**: Same as the articles list endpoint.
+
+### Tags
+
+#### `GET /api/tags/`
+List all tags.
+
+**Response**:
+```json
+[
+  {
+  "id": "integer",
+  "name": "string",
+  "slug": "string",
+  "is_trending": "boolean"
+  }
+]
+```
+
+#### `GET /api/tags/{slug}/`
+List articles with a specific tag.
+
+**Response**: Same as the articles list endpoint.
 
 ### User Profile
 
@@ -237,33 +265,28 @@ Content-Type: multipart/form-data
 ### Development Setup
 1. Clone the repository
 2. Create and activate virtual environment:
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # Linux/Mac
-    venv\Scripts\activate     # Windows
-    ```
+  ```bash
+  python -m venv venv
+  source venv/bin/activate  # Linux/Mac
+  venv\Scripts\activate     # Windows
+  ```
 3. Install dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
+  ```bash
+  pip install -r requirements.txt
+  ```
 4. Set up environment variables (see below)
 5. Run migrations:
-    ```bash
-    python manage.py migrate
-    ```
+  ```bash
+  python manage.py migrate
+  ```
 6. Create superuser:
-    ```bash
-    python manage.py createsuperuser
-    ```
+  ```bash
+  python manage.py createsuperuser
+  ```
 7. Run development server:
-    ```bash
-    python manage.py runserver
-    ```
-
-### Production Setup
-```bash
-docker-compose up -d --build
-```
+  ```bash
+  python manage.py runserver
+  ```
 
 ## Environment Variables
 
@@ -273,56 +296,57 @@ Create a `.env` file in project root:
 # Django
 SECRET_KEY=your-secret-key-here
 DEBUG=False
-ALLOWED_HOSTS=.yourdomain.com,localhost
+ALLOWED_HOSTS=.yourdomain.com,localhost,127.0.0.1
 
-# Database
+# Database (for production)
 DB_ENGINE=django.db.backends.postgresql
 DB_NAME=kwelinews
 DB_USER=dbuser
 DB_PASSWORD=dbpassword
-DB_HOST=db
+DB_HOST=localhost
 DB_PORT=5432
 
-# Email
+# CORS
+CORS_ALLOWED_ORIGINS=https://btn-kenya.vercel.app,http://localhost:5173,http://127.0.0.1:5173
+
+# JWT Settings
+ACCESS_TOKEN_LIFETIME_MINUTES=60
+REFRESH_TOKEN_LIFETIME_DAYS=1
+
+# Media Storage
+MEDIA_URL=/media/
+MEDIA_ROOT=media
+
+# Email (optional)
 EMAIL_HOST=smtp.yourservice.com
 EMAIL_PORT=587
 EMAIL_HOST_USER=your@email.com
 EMAIL_HOST_PASSWORD=emailpassword
 DEFAULT_FROM_EMAIL=no-reply@kwelinews.com
-
-# AWS S3 (optional)
-AWS_ACCESS_KEY_ID=your-key
-AWS_SECRET_ACCESS_KEY=your-secret
-AWS_STORAGE_BUCKET_NAME=kwelinews-media
 ```
 
 ## Deployment
 
-### Docker Deployment
-1. Build containers:
-    ```bash
-    docker-compose build
-    ```
-2. Run migrations:
-    ```bash
-    docker-compose run web python manage.py migrate
-    ```
-3. Start services:
-    ```bash
-    docker-compose up -d
-    ```
+### Production Setup
+For production deployment, it's recommended to:
 
-### Manual Deployment
-1. Set up PostgreSQL database
-2. Configure Gunicorn:
-    ```bash
-    gunicorn --bind 0.0.0.0:8000 kwelinews.wsgi:application
-    ```
-3. Set up Nginx as reverse proxy
-4. Configure static files:
-    ```bash
-    python manage.py collectstatic
-    ```
+1. Use PostgreSQL instead of SQLite
+2. Configure a web server like Nginx to serve static/media files
+3. Use Gunicorn as the WSGI server
+
+#### Setup steps:
+1. Set up a PostgreSQL database
+2. Update settings.py to use the PostgreSQL database in production
+3. Configure Gunicorn:
+  ```bash
+  gunicorn --bind 0.0.0.0:8000 kweliapi.wsgi:application
+  ```
+4. Set up Nginx as a reverse proxy to Gunicorn
+5. Configure static files:
+  ```bash
+  python manage.py collectstatic
+  ```
+6. Set up SSL/TLS for secure connections
 
 ---
 
